@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>耳机聆听统计</title>
+<style>
+:root{color-scheme:light;--paper:#f5f5ee;--card:#fffefa;--ink:#142922;--muted:#50635a;--line:#d9e1d8;--green:#145644;--mint:#c8ecd7;--soft:#e9f2e9}*{box-sizing:border-box}
+body{margin:0;color:var(--ink);background:var(--paper);font:15px/1.55 "Microsoft YaHei",system-ui,sans-serif}main{width:min(1060px,calc(100% - 40px));margin:34px auto 55px}
+h1,h2,p{margin:0}h1{font-size:clamp(34px,6vw,62px);line-height:1.1;letter-spacing:-.055em}h2{font-size:21px;letter-spacing:-.025em}button,input,select{font:inherit}button,select,input[type=date]{border:1px solid var(--line);border-radius:8px;padding:8px 13px;background:var(--card);color:var(--ink)}button{cursor:pointer}button:hover{border-color:var(--green)}button[aria-pressed=true],.primary{background:var(--green);color:white;border-color:var(--green)}button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #468b6f;outline-offset:2px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:25px}.sub,.muted,small{color:var(--muted)}.sub{margin-top:9px}.import{padding:16px 18px;border:1px dashed #8caa99;border-radius:12px;background:var(--soft)}.drag{background:var(--mint)}.row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.import p:not(:empty){margin-top:8px}.error{color:#9b231d}progress{width:min(300px,100%);accent-color:var(--green)}.welcome{margin-top:18px;padding:24px;background:var(--card);border:1px solid var(--line);border-radius:14px}.welcome ol{margin-bottom:0;padding-left:24px}
+.dashboard{margin-top:22px}.filters{display:flex;gap:15px;align-items:end;justify-content:space-between;flex-wrap:wrap;margin-bottom:13px}.field{display:grid;gap:3px}.date-row{margin:0 0 16px}.card{border:1px solid var(--line);background:var(--card);border-radius:14px;padding:19px}.hero{background:#183b30;color:#fff;border:0;padding:25px}.hero .muted,.hero small{color:#c6e0d3}.hero .big{font-size:clamp(35px,7vw,74px);font-weight:750;line-height:1.16;letter-spacing:-.06em;margin:5px 0}.big small{font-size:.36em;letter-spacing:0;font-weight:600}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 0}.value{font-size:clamp(20px,3vw,29px);font-weight:700;line-height:1.25;overflow-wrap:anywhere;margin:5px 0}.grid .card{padding:15px}.split{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:10px}.heading{justify-content:space-between;align-items:baseline}.graph{margin:15px 0 3px;height:132px;display:flex;align-items:stretch;gap:2px;overflow-x:auto;background:repeating-linear-gradient(to top,#dae5da 0 1px,transparent 1px 25%)}.bar{display:flex;align-items:end;justify-content:center;flex:1 0 4px;padding:0;border:0;border-radius:0;background:transparent}.bar i{display:block;width:min(100%,23px);background:#368366;border-radius:4px 4px 0 0;pointer-events:none}.bar:hover i,.bar:focus i{background:#123f30}.axis{justify-content:space-between}.chart-note{min-height:24px;margin-top:4px}.scale{position:relative;height:10px;margin:16px 8px 2px;background:linear-gradient(90deg,#77cfa7,#adce7a 52%,#e2a766 74%,#d47871);border-radius:10px}.marker{position:absolute;top:50%;transform:translate(-50%,-50%);height:19px;width:19px;background:white;border:3px solid #173c31;border-radius:50%}.threshold{position:absolute;left:66.67%;height:14px;top:-2px;border-left:2px solid #273831}.volume-note{margin-top:10px}details{margin-top:12px}summary{cursor:pointer}details p{margin-top:6px}[hidden]{display:none!important}
+@media(max-width:650px){main{width:calc(100% - 24px);margin-top:23px}header{display:block}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.split{grid-template-columns:1fr}.date-row input{padding-inline:6px}.card{padding:14px}}
+</style>
+</head>
+<body>
+<main>
+<header><div><h1>耳机聆听统计</h1><p class="sub">按耳机查看累计时长、使用趋势与播放音量</p></div></header>
+<section class="import" id="drop" aria-label="导入健康数据">
+<div class="row"><button class="primary" id="pick">导入 Apple 健康数据</button><input id="file" type="file" accept=".zip,.xml" hidden><button id="demo">查看示例</button><button id="cancel" hidden>取消导入</button><small>支持 ZIP 和 XML · 数据在本机浏览器处理</small></div>
+<p id="status" role="status"></p><progress id="progress" max="1" hidden aria-label="导入进度"></progress>
+</section>
+<section class="welcome" id="welcome"><h2>从 iPhone 导出数据</h2><ol><li>打开「健康」，点击右上角的个人头像。</li><li>滑到底部，选择「导出所有健康数据」。</li><li>把导出的 ZIP 传到电脑，直接导入。也可以导入解压后的 export.xml。</li></ol></section>
+<section id="dashboard" class="dashboard" hidden aria-label="聆听报告">
+<div class="filters"><label class="field">耳机<select id="device"></select></label><div class="row" id="presets" aria-label="快捷日期"><button data-days="7">7 天</button><button data-days="30">30 天</button><button data-days="90">90 天</button><button data-days="365">1 年</button><button data-days="all">全部</button></div></div>
+<div class="row date-row"><label>开始日期 <input id="start" type="date"></label><label>结束日期 <input id="end" type="date"></label><span class="error" id="dateError" role="status"></span></div>
+<div id="report"></div>
+<details><summary>统计口径</summary><p class="muted">日期按电脑当前时区显示。快捷日期以所选耳机的最近记录日为截止日，起止日都计入。使用次数按每副耳机分别统计，同一耳机的相邻播放间隔超过 3 分钟时计为新一次。时长只计实际记录区间。重复和重叠区间按同一副耳机去重，所有耳机的时长为各副耳机之和。</p><p class="muted">耳机按导出中可识别的型号及设备标识分组。缺少独立标识时，同型号可能合并。缺少型号时显示为未识别设备。平均音量为按播放时长加权的分贝读数平均值，超过 80 dB 的比例仅使用有音量值的时长。</p></details>
+</section>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const exposure = "HKQuantityTypeIdentifierHeadphoneAudioExposure";
+const dateFmt = new Intl.DateTimeFormat("zh-CN", {year:"numeric",month:"2-digit",day:"2-digit"});
+const numberFmt = new Intl.NumberFormat("zh-CN");
+const fmt = value => dateFmt.format(value).replaceAll("/", ".");
+const minutes = 60000;
+const integer = number => numberFmt.format(number);
+const duration = value => {
+  if (value <= 0) return "0 分钟";
+  const total = Math.floor(value / minutes);
+  if (!total) return "不到 1 分钟";
+  return (total >= 60 ? integer(Math.floor(total / 60)) + " 小时 " : "") + total % 60 + " 分钟";
+};
+const dayKey = value => {
+  const date = new Date(value);
+  return [date.getFullYear(), date.getMonth()+1, date.getDate()].map(n => String(n).padStart(2,"0")).join("-");
+};
+function plusDays(value, days) {
+  const date = new Date(value);
+  date.setDate(date.getDate() + days);
+  return +date;
+}
+const midnight = day => +new Date(day + "T00:00:00");
+const escaping = document.createElement("textarea");
+function decodeXml(value) {
+  return value.replace(/&(?:amp|lt|gt|quot|apos|#x[\da-f]+|#\d+);/gi, entity => {
+    escaping.innerHTML = entity;
+    return escaping.value.replaceAll("&apos;", "'");
+  });
+}
+function attributes(tag) {
+  const result = Object.create(null);
+  for (const match of tag.matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
+    result[match[1]] = decodeXml(match[2] ?? match[3]);
+  }
+  return result;
+}
+function zipView(buffer) { return new DataView(buffer); }
+async function xmlStream(file) {
+  if (/\.xml$/i.test(file.name)) return {stream:file.stream(), size:file.size};
+  if (!/\.zip$/i.test(file.name)) throw Error("请选择 Apple 健康导出的 ZIP 或 XML 文件。");
+  const tailStart = Math.max(0, file.size - 65557);
+  const tail = zipView(await file.slice(tailStart).arrayBuffer());
+  let end = tail.byteLength - 22;
+  for (; end >= 0; end--) {
+    if (tail.getUint32(end,true) === 0x06054b50 && end + 22 + tail.getUint16(end+20,true) === tail.byteLength) break;
+  }
+  if (end < 0) throw Error("无法读取 ZIP。请确认文件已经完整传到电脑。");
+  const count = tail.getUint16(end+10,true);
+  const directorySize = tail.getUint32(end+12,true);
+  const directoryOffset = tail.getUint32(end+16,true);
+  if (count === 65535 || directoryOffset === 0xffffffff || directorySize === 0xffffffff)
+    throw Error("这是 ZIP64 文件。请先解压，再导入 export.xml。");
+  if (tail.getUint16(end+4,true) || tail.getUint16(end+6,true) ||
+      directoryOffset + directorySize > tailStart + end || directorySize > 64 * 1024 * 1024)
+    throw Error("ZIP 目录无法读取。请先解压，再导入 export.xml。");
+  const directory = zipView(await file.slice(directoryOffset,directoryOffset+directorySize).arrayBuffer());
+  let pos = 0;
+  let chosen;
+  for (let index=0; index<count; index++) {
+    if (pos+46 > directory.byteLength || directory.getUint32(pos,true) !== 0x02014b50)
+      throw Error("ZIP 目录损坏。");
+    const nameLength = directory.getUint16(pos+28,true);
+    const next = pos+46+nameLength+directory.getUint16(pos+30,true)+directory.getUint16(pos+32,true);
+    if (next > directory.byteLength) throw Error("ZIP 目录损坏。");
+    const name = new TextDecoder().decode(new Uint8Array(directory.buffer,pos+46,nameLength));
+    if (/(^|\/)(?:export|导出|匯出)\.xml$/i.test(name) && !name.startsWith("__MACOSX/"))
+      chosen = {flags:directory.getUint16(pos+8,true),method:directory.getUint16(pos+10,true),
+        compressed:directory.getUint32(pos+20,true),size:directory.getUint32(pos+24,true),offset:directory.getUint32(pos+42,true)};
+    pos = next;
+  }
+  if (!chosen) throw Error("ZIP 中没有找到健康数据 XML（export.xml 或导出.xml）。");
+  if ([chosen.compressed,chosen.size,chosen.offset].includes(0xffffffff))
+    throw Error("此文件使用 ZIP64。请解压后导入 export.xml。");
+  if (chosen.flags & 1) throw Error("此 ZIP 已加密，请解压后导入 export.xml。");
+  const local = zipView(await file.slice(chosen.offset,chosen.offset+30).arrayBuffer());
+  if (local.byteLength !== 30 || local.getUint32(0,true) !== 0x04034b50) throw Error("ZIP 文件头损坏。");
+  const start = chosen.offset + 30 + local.getUint16(26,true) + local.getUint16(28,true);
+  if (start+chosen.compressed > directoryOffset) throw Error("ZIP 中的 XML 数据不完整。");
+  const stream = file.slice(start,start+chosen.compressed).stream();
+  if (chosen.method === 0) return {stream,size:chosen.size};
+  if (chosen.method !== 8 || typeof DecompressionStream !== "function")
+    throw Error("浏览器无法解压此 ZIP。请用新版 Edge、Chrome，或解压后导入 XML。");
+  return {stream:stream.pipeThrough(new DecompressionStream("deflate-raw")),size:chosen.size};
+}
+function parseDate(text) {
+  return Date.parse(text?.replace(/^(\d{4}-\d\d-\d\d) (\d\d:\d\d:\d\d(?:\.\d+)?) ([+-]\d\d)(\d\d)$/, "$1T$2$3:$4"));
+}
+function deviceFields(device, metadata) {
+  const field = name => device?.match(new RegExp("(?:^|[,{}])\\s*" + name + "\\s*:\\s*([^,}]+)", "i"))?.[1]?.trim();
+  const model = metadata.HKMetadataKeyDeviceName || field("name") || field("model") || field("hardware") || "未识别设备";
+  const hardware = field("hardware") || "";
+  const identity = metadata.HKMetadataKeyDeviceIdentifier || metadata.HKMetadataKeyDeviceUDID || field("udiDeviceIdentifier") || field("localIdentifier") || "";
+  return {key:JSON.stringify([model,hardware,identity]),label:model};
+}
+async function readRecords(file, signal, update) {
+  const {stream,size} = await xmlStream(file);
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  const groups = new Map();
+  let pending = "";
+  let current = null;
+  let sawHealth = false;
+  let sawEnd = false;
+  let scanned = 0, matched = 0, skipped = 0;
+  let lastYield = performance.now();
+  const abort = () => { void reader.cancel().catch(() => {}); };
+  signal.addEventListener("abort",abort,{once:true});
+  function addRecord() {
+    const {attrs, metadata} = current;
+    current = null;
+    const begin = parseDate(attrs.startDate);
+    const end = parseDate(attrs.endDate);
+    if (!Number.isFinite(begin) || !Number.isFinite(end) || end <= begin) { skipped++; return; }
+    const {key,label} = deviceFields(attrs.device,metadata);
+    if (!groups.has(key)) groups.set(key,{label,records:[]});
+    const level = attrs.value?.trim() ? Number(attrs.value) : NaN;
+    groups.get(key).records.push({begin,end,level});
+    matched++;
+  }
+  function consume(chunk) {
+    pending += chunk;
+    const tags = /<\/?(?:HealthData|Record|MetadataEntry)\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/g;
+    let match;
+    while ((match=tags.exec(pending))) {
+      const tag = match[0];
+      if (/^<HealthData\b/.test(tag)) sawHealth = true;
+      if (/^<\/HealthData\b/.test(tag)) sawEnd = true;
+      if (/^<Record\b/.test(tag) && tag.includes(exposure)) {
+        const attrs = attributes(tag);
+        if (attrs.type === exposure) {
+          current = {attrs,metadata:Object.create(null)};
+          if (tag.endsWith("/>")) addRecord();
+        }
+      } else if (current && /^<MetadataEntry\b/.test(tag)) {
+        const attrs = attributes(tag);
+        if (attrs.key) current.metadata[attrs.key] = attrs.value;
+      } else if (current && /^<\/Record\b/.test(tag)) {
+        addRecord();
+      }
+    }
+    const lastOpen = pending.lastIndexOf("<");
+    const possibleTag = pending.slice(lastOpen);
+    const unfinished = lastOpen >= 0 && !/^<(?:[^"\x27<>]|"[^"]*"|\x27[^\x27]*\x27)*>/.test(possibleTag);
+    pending = unfinished ? possibleTag : "";
+  }
+  try {
+    signal.throwIfAborted();
+    while (true) {
+      const {done,value} = await reader.read();
+      signal.throwIfAborted();
+      if (done) break;
+      scanned += value.byteLength;
+      consume(decoder.decode(value,{stream:true}));
+      if (performance.now()-lastYield > 45) {
+        update(scanned/Math.max(size,1),matched);
+        await new Promise(resolve => setTimeout(resolve,0));
+        lastYield = performance.now();
+      }
+    }
+    consume(decoder.decode());
+  } finally {
+    signal.removeEventListener("abort",abort);
+    await reader.cancel().catch(() => {});
+  }
+  if (!sawHealth || !sawEnd || current || scanned !== size) throw Error("XML 不完整或不是 Apple 健康导出文件。");
+  if (!matched) throw Error("没有找到有效的耳机音量记录。可在 iPhone「健康 → 浏览 → 听觉 → 耳机音量」检查是否有记录。");
+  return {groups:[...groups.values()],matched,skipped};
+}
+function prepare(groups) {
+  const used = new Map();
+  for (const group of groups) {
+    group.records.sort((a,b) => a.begin-b.begin || b.end-a.end || Number.isFinite(b.level)-Number.isFinite(a.level));
+    let previousEnd = -Infinity;
+    group.records = group.records.flatMap(record => {
+      const begin = Math.max(previousEnd,record.begin);
+      previousEnd = Math.max(previousEnd,record.end);
+      return begin < record.end ? [{...record,begin}] : [];
+    });
+    group.first = group.records[0].begin;
+    group.last = group.records.at(-1).end - 1;
+    group.total = group.records.reduce((sum,record) => sum+record.end-record.begin,0);
+  }
+  groups.sort((a,b) => b.total-a.total);
+  const count = new Map();
+  for (const {label} of groups) count.set(label,(count.get(label)||0)+1);
+  for (const group of groups) {
+    used.set(group.label,(used.get(group.label)||0)+1);
+    if (count.get(group.label)>1) group.label += " · " + used.get(group.label);
+  }
+  return groups;
+}
+const state = {groups:[],preset:"all",job:null};
+function selected() {
+  const value = $("device").value;
+  return value === "all" ? state.groups : [state.groups[Number(value)]];
+}
+function load(groups) {
+  state.groups = prepare(groups);
+  $("device").replaceChildren(new Option("全部耳机", "all"),...state.groups.map((group,index) =>
+    new Option(group.label+" · "+duration(group.total),String(index))));
+  $("device").value = state.groups.length === 1 ? "0" : "all";
+  $("welcome").hidden = true;
+  $("dashboard").hidden = false;
+  applyPreset("all");
+}
+function dateBounds() {
+  const groups = selected();
+  return [Math.min(...groups.map(group => group.first)),Math.max(...groups.map(group => group.last))];
+}
+function applyPreset(preset) {
+  state.preset = preset;
+  const [first,last] = dateBounds();
+  $("start").value = preset === "all" ? dayKey(first) : dayKey(plusDays(midnight(dayKey(last)),1-Number(preset)));
+  $("end").value = dayKey(last);
+  render();
+}
+function stats(groups, from, until) {
+  const daily = new Map();
+  const sessions = [];
+  let total=0, volume=0, measured=0, over=0;
+  for (const group of groups) {
+    let session = null;
+    for (const record of group.records) {
+      if (record.end <= from) continue;
+      if (record.begin >= until) break;
+      const begin = Math.max(record.begin,from), end = Math.min(record.end,until);
+      const elapsed = end - begin;
+      total += elapsed;
+      if (Number.isFinite(record.level)) {
+        measured += elapsed;
+        volume += elapsed*record.level;
+        if (record.level > 80) over += elapsed;
+      }
+      if (!session || begin-session.end > 3*minutes) {
+        session = {begin,end,duration:0};
+        sessions.push(session);
+      }
+      session.end = end;
+      session.duration += elapsed;
+      let point = begin;
+      while (point < end) {
+        const key = dayKey(point);
+        const next = Math.min(end,plusDays(midnight(key),1));
+        daily.set(key,(daily.get(key)||0)+next-point);
+        point = next;
+      }
+    }
+  }
+  sessions.sort((a,b) => a.begin-b.begin);
+  return {daily,sessions,total,volume,measured,over};
+}
+function calendarDays(first,last) {
+  return Math.round((Date.parse(last)-Date.parse(first))/86400000)+1;
+}
+function makeBuckets(daily,from,until,days) {
+  const step = days <= 62 ? 1 : days <= 240 ? 7 : 0;
+  const buckets = [];
+  if (days > 36525) return {buckets,label:"日期范围超过 100 年"};
+  for (let begin=from;begin<until;) {
+    const date = new Date(begin);
+    const next = step ? plusDays(begin,step) : +new Date(date.getFullYear(),date.getMonth()+1,1);
+    const end = Math.min(until,next);
+    let sum = 0;
+    for (let day=begin;day<end;day=plusDays(day,1)) sum += daily.get(dayKey(day))||0;
+    buckets.push({begin,end,sum});
+    begin = end;
+  }
+  return {buckets,label:step===1 ? "按日" : step===7 ? "按 7 天" : "按月"};
+}
+function metric(label,value,description) {
+  return '<div class="card"><div class="muted">'+label+'</div><div class="value">'+value+'</div><small>'+description+'</small></div>';
+}
+function render() {
+  for (const button of $("presets").querySelectorAll("button")) button.setAttribute("aria-pressed",String(button.dataset.days===state.preset));
+  const start=$("start").value, end=$("end").value;
+  const from=midnight(start), until=plusDays(midnight(end),1);
+  const valid=Number.isFinite(from) && Number.isFinite(until) && from<until && calendarDays(start,end)<=36525;
+  $("dateError").textContent=valid ? "" : "请选择有效的起止日期，范围最多 100 年。";
+  $("report").hidden=!valid;
+  if (!valid) return;
+  const active=selected(), days=calendarDays(start,end);
+  const {daily,sessions,total,volume,measured,over}=stats(active,from,until);
+  const allTotal=active.length===state.groups.length ? total : state.groups.reduce((sum,group) => {
+    for (const record of group.records) {
+      if (record.begin >= until) break;
+      sum += Math.max(0,Math.min(record.end,until)-Math.max(record.begin,from));
+    }
+    return sum;
+  },0);
+  const lifetime=active.reduce((sum,group) => sum+group.total,0);
+  const first=sessions[0], last=sessions.reduce((best,current) => !best || current.end>best.end ? current : best,null);
+  const longest=sessions.reduce((best,current) => !best || current.duration>best.duration ? current : best,null);
+  const hours=Math.floor(total/(60*minutes)), mins=Math.floor(total/minutes)%60;
+  const {buckets,label}=makeBuckets(daily,from,until,days);
+  const max=buckets.reduce((peak,bucket) => Math.max(peak,bucket.sum),0);
+  const avg=measured ? volume/measured : NaN;
+  const range=fmt(from)+" – "+fmt(until-1);
+  $("report").innerHTML =
+    '<section class="card hero"><div class="muted">所选日期聆听时长</div><div class="big">'+integer(hours)+' <small>小时</small> '+mins+' <small>分</small></div>'+
+    '<p>'+range+' · '+integer(daily.size)+' 天有记录</p><small>日均 '+duration(total/days)+
+    (allTotal && $("device").value!=="all" ? ' · 占全部耳机 '+(100*total/allTotal).toFixed(1)+'%' : '')+
+    (!total ? ' · 这段日期没有记录' : '')+'</small></section>'+
+    '<section class="grid" aria-label="使用详情">'+
+    metric("累计聆听",duration(lifetime),"所选耳机的全部记录")+
+    metric("使用次数",integer(sessions.length)+" 次","同一耳机间隔超过 3 分钟算新一次")+
+    metric("平均每次",first ? duration(total/sessions.length) : "—","按记录的播放时长计算")+
+    metric("最长一次",longest ? duration(longest.duration) : "—",longest ? fmt(longest.begin) : "暂无记录")+
+    metric("有记录日的日均",daily.size ? duration(total/daily.size) : "—","仅计有播放记录的日期")+
+    metric("第一次使用",first ? fmt(first.begin) : "—",first ? duration(first.duration) : "暂无记录")+
+    metric("最近一次使用",last ? fmt(last.end-1) : "—",last ? duration(last.duration) : "暂无记录")+'</section>'+
+    '<div class="split"><section class="card"><div class="row heading"><h2>聆听趋势</h2><small>'+label+' · 最高 '+duration(max)+'</small></div>'+
+    '<div id="graph" class="graph" aria-label="聆听趋势柱状图"></div><div class="row axis"><small>'+fmt(from)+'</small><small>'+fmt(until-1)+'</small></div>'+
+    '<p id="chartNote" class="muted chart-note">选择柱形查看这一段的时长。</p></section>'+
+    '<section class="card"><h2>平均播放音量</h2><div class="value">'+(measured ? avg.toFixed(1)+" dB" : "—")+'</div>'+
+    '<div class="scale" aria-hidden="true"><span class="threshold"></span>'+(measured ? '<span class="marker" style="left:'+Math.min(100,Math.max(0,(avg-40)/.6))+'%"></span>' : '')+'</div>'+
+    '<div class="row axis"><small>40 dB</small><small>100 dB</small></div><p class="volume-note">'+
+    (measured ? (100*over/measured).toFixed(1)+'% 的有音量记录时长超过 80 dB。' : "所选日期内没有音量记录。")+'</p></section></div>';
+  const graph = $("graph");
+  const fragment = document.createDocumentFragment();
+  for (const bucket of buckets) {
+    const text = fmt(bucket.begin)+(dayKey(bucket.begin)===dayKey(bucket.end-1) ? "" : " – "+fmt(bucket.end-1))+" · "+duration(bucket.sum);
+    const bar = document.createElement("button");
+    bar.className="bar";
+    bar.title=text;
+    bar.setAttribute("aria-label",text);
+    const fill = document.createElement("i");
+    fill.style.height=(max && bucket.sum ? Math.max(1,100*bucket.sum/max) : 0)+"%";
+    bar.append(fill);
+    bar.addEventListener("click",() => { $("chartNote").textContent=text; });
+    fragment.append(bar);
+  }
+  graph.append(fragment);
+}
+function showStatus(text,error=false) {
+  $("status").textContent=text;
+  $("status").classList.toggle("error",error);
+}
+function busy(value) {
+  for (const id of ["pick","demo"]) $(id).disabled=value;
+  $("cancel").hidden=!value;
+  $("progress").hidden=!value;
+  if (value) $("progress").removeAttribute("value");
+}
+async function importFile(file) {
+  if (!file || state.job) return;
+  const job=new AbortController();
+  state.job=job;
+  busy(true);
+  showStatus("正在读取 "+file.name+"…");
+  try {
+    const data=await readRecords(file,job.signal,(fraction,count) => {
+      $("progress").value=Math.min(1,fraction);
+      showStatus("正在读取 "+file.name+" · 已找到 "+integer(count)+" 条有效记录");
+    });
+    load(data.groups);
+    showStatus("已导入 "+integer(data.matched)+" 条有效记录 · "+data.groups.length+" 个设备分组"+
+      (data.skipped ? " · 略过 "+integer(data.skipped)+" 条无效时长记录" : ""));
+  } catch (error) {
+    showStatus(job.signal.aborted ? "已取消导入。" : (error.message || "导入失败。"),!job.signal.aborted);
+  } finally {
+    state.job=null;
+    busy(false);
+  }
+}
+$("pick").onclick=() => $("file").click();
+$("file").onchange=event => { void importFile(event.target.files[0]); event.target.value=""; };
+$("cancel").onclick=() => state.job?.abort();
+$("device").onchange=() => state.preset ? applyPreset(state.preset) : render();
+$("presets").onclick=event => { if (event.target.dataset.days) applyPreset(event.target.dataset.days); };
+for (const id of ["start","end"]) $(id).onchange=() => { state.preset=null; render(); };
+$("demo").onclick=() => {
+  const today=midnight(dayKey(Date.now()));
+  const groups=["无线耳机 A","无线耳机 B"].map((label,index) => ({
+    label, records:Array.from({length:180-index*38},(_,i) => {
+      const begin=plusDays(today,-i*2-index)+((i%3)+16)*60*minutes;
+      return {begin,end:begin+(22+(i*47)%146)*minutes,level:57+(i*19)%29};
+    })
+  }));
+  load(groups);
+  showStatus("正在展示虚构的示例数据。可以随时导入你自己的记录。");
+};
+$("drop").ondragover=event => { event.preventDefault(); if (!state.job) $("drop").classList.add("drag"); };
+$("drop").ondragleave=() => $("drop").classList.remove("drag");
+$("drop").ondrop=event => { event.preventDefault(); $("drop").classList.remove("drag"); void importFile(event.dataTransfer.files[0]); };
+</script>
+</body>
+</html>
